@@ -84,6 +84,9 @@ mklink /J "%USERPROFILE%\.dsh\profiles\node_modules\deepseek-balance-dashboard" 
   等其他模型的 usage 也算进 DeepSeek，同时重复加入 reasoning token。新版只统计
   `deepseek-official`，并采用 DSH 的标准口径（`outputTokens` 已包含 reasoning）。
   升级后旧版污染数据会自动清空，从正确口径重新累计。
+- **DSH 重启后看板变成无样式的原始文字**：旧版会在 Client 重连时移除 CSS，
+  但设置页组件可能继续保留。新版使用稳定、幂等的样式标签跨重连保留；旧版可先用
+  `Ctrl+F5` 强制刷新恢复。
 - **热力图今天没有格子**：token 数据从插件**安装并重启之后**开始累计，
   之前的历史用量没有接口可查，属正常现象。
 
