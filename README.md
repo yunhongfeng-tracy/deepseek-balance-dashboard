@@ -83,7 +83,13 @@ mklink /J "%USERPROFILE%\.dsh\profiles\node_modules\deepseek-balance-dashboard" 
 - **Token 数异常大，切换其他模型后仍增长**：旧版没有过滤 provider，会把 GPT、Kimi
   等其他模型的 usage 也算进 DeepSeek，同时重复加入 reasoning token。新版只统计
   `deepseek-official`，并采用 DSH 的标准口径（`outputTokens` 已包含 reasoning）。
-  升级后旧版污染数据会自动清空，从正确口径重新累计。
+  旧版数据会保留并标记为“旧版口径”，新调用从正确口径继续累计。
+- **更换 workspace 后某天历史数据消失**：旧版把统计文件放在当时的 workspace，
+  切换目录后会读到另一份文件。v3 改为统一存放在 `$DSH_HOME`，并自动导入当前
+  workspace 的旧文件；其他旧 workspace 的数据可手动合并到全局文件。
+- **悬停其他日期仍显示最后一天，或点击其他区域后提示不消失**：旧版循环变量使用
+  `var`，所有事件可能引用最后一个格子，同时只依赖 `onMouseLeave` 清理。新版使用
+  每格独立绑定，并在点击其他区域、滚动、窗口失焦、隐藏页面或按 Esc 时关闭提示。
 - **DSH 重启后看板变成无样式的原始文字**：旧版会在 Client 重连时移除 CSS，
   但设置页组件可能继续保留。新版使用稳定、幂等的样式标签跨重连保留；旧版可先用
   `Ctrl+F5` 强制刷新恢复。
@@ -108,9 +114,10 @@ rmdir "%USERPROFILE%\.dsh\profiles\node_modules\deepseek-balance-dashboard"
 
 ```bash
 # 3. （可选）清理已统计的 token 数据文件：
-del "%USERPROFILE%\.dsh\...\dsh-deepseek-token-usage.json"
-#    实际路径 = 插件运行时的 cwd（通常是 DSH 的 workspace root）下的
-#    .dsh-deepseek-token-usage.json，例如 D:\...\工作目录\.dsh-deepseek-token-usage.json
+del "%DSH_HOME%\.deepseek-balance-dashboard-token-usage.json"
+#    若 DSH_HOME 未显式配置，默认路径为：
+#    %USERPROFILE%\.dsh\.deepseek-balance-dashboard-token-usage.json
+#    旧版 workspace 中可能仍留有 .dsh-deepseek-token-usage.json，可按需备份或删除。
 ```
 
 4. **重启 DSH** 使配置生效（不重启的话旧进程里插件仍在运行）。
@@ -139,12 +146,13 @@ del "%USERPROFILE%\.dsh\...\dsh-deepseek-token-usage.json"
 - **token 用量**：DeepSeek 没有公开的"每日用量"接口，本插件通过 `llm/stream` 钩子仅统计 provider 为 `deepseek-official` 的调用，因此从**安装后开始累积**；历史无数据。
 - **Token 口径**：输入 = `inputTokens + cacheReadTokens + cacheWriteTokens`；输出 = `outputTokens`。DSH 的 `outputTokens` 已包含 reasoning，插件不会重复加入 `reasoningTokens`。
 - **费用**：由余额快照下降量估算，充值/赠送余额变动可能造成短暂失真。
-- token 数据持久化在插件运行 cwd 下的 `.dsh-deepseek-token-usage.json`（v2 格式，按天累计，跨重启保留；首次从旧版升级会清空无法拆分的污染数据）。
+- token 数据统一持久化在 `$DSH_HOME/.deepseek-balance-dashboard-token-usage.json`（v3 格式，Host 全局、按天累计、跨 workspace 和重启保留）。v1 历史会保留并标记为“旧版口径”，v2 数据可直接迁移；当前 workspace 下的旧文件会自动导入。
 
 ## 目录结构
 
 ```
 deepseek-balance-dashboard/
+├── AGENTS.md         # 项目用途、数据口径与开发验证约束
 ├── package.json      # 声明 dsh.client（客户端半）
 ├── lib/
 │   ├── index.js      # 主机半：余额查询 + token 统计 + HTTP 路由
