@@ -24,7 +24,7 @@
 - Token 只统计 `options.provider === 'deepseek-official'` 的调用；不得把 GPT、Kimi 或其他 provider 的 usage 计入 DeepSeek 看板。
 - 输入 Token = `inputTokens + cacheReadTokens + cacheWriteTokens`。
 - 输出 Token = `outputTokens`。DSH 的 `outputTokens` 已包含 reasoning；禁止再次加入 `reasoningTokens`。
-- Token 文件统一位于 `$DSH_HOME/.deepseek-balance-dashboard-token-usage.json`，当前使用 v3 数据格式；它是 Host 全局数据，不得绑定当前 workspace。v1 数据保留并标记为“旧版口径”，v2 数据可直接迁移。
+- Token 文件统一位于 `$DSH_HOME/.deepseek-balance-dashboard-token-usage.json`，当前使用 v3 数据格式；它是 Host 全局数据，不得绑定当前 workspace。v1 数据保留并标记为“旧版口径”，v2 数据可直接迁移。旧文件名（`.dsh-deepseek-token-usage.json`、v0.1.0 的 `.ds-deepseek-token-usage.json`）在启动时自动扫描迁移。
 
 ## DSH / Cordis 开发约束
 
@@ -38,9 +38,10 @@
 ## 修改后的最低验证要求
 
 1. 对 `lib/index.js` 和 `lib/client.js` 运行 `node --check`。
-2. 确认 `/api/deepseek-balance` 返回 `ok: true`，且响应不包含明文 API Key。
-3. 验证非 `deepseek-official` usage 不会增加 Token；DeepSeek usage 按标准口径只累计一次。
-4. 验证 Client CSS 重复初始化仍只有一个稳定 style 标签。
-5. 验证首次打开、Host 重启但浏览器不刷新、WebSocket 重连和 `Ctrl+F5` 后界面均正常。
-6. 验证每个热力图格子的 Tooltip 日期独立正确，并在点击其他区域、滚动、失焦、页面隐藏、指针取消或按 Esc 时关闭。
-7. 发布行为变更时同步更新 `package.json` 版本和 `README.md`，检查 Git diff 后再提交。
+2. 确认 `/api/deepseek-balance` 返回 `ok: true`、`schemaVersion: 3`，且响应不包含明文 API Key。
+3. 验证插件 stop/重载时 `/api/deepseek-balance` 路由会随 Context 正确注销，不发生重复注册。
+4. 验证非 `deepseek-official` usage 不会增加 Token；DeepSeek usage 按标准口径只累计一次。
+5. 验证 Client CSS 重复初始化仍只有一个稳定 style 标签。
+6. 验证首次打开、Host 重启但浏览器不刷新、WebSocket 重连和 `Ctrl+F5` 后界面均正常。
+7. 验证每个热力图格子的 Tooltip 日期独立正确，并在点击其他区域、滚动、失焦、页面隐藏、指针取消或按 Esc 时关闭。
+8. 发布行为变更时同步更新 `package.json` 版本和 `README.md`，检查 Git diff 后再提交。

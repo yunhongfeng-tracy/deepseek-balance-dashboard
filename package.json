@@ -1,6 +1,6 @@
 {
   "name": "deepseek-balance-dashboard",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "DSH 插件：在设置面板展示 DeepSeek API 余额与 token 用量热力图",
   "type": "module",
   "main": "lib/index.js",
