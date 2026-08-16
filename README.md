@@ -69,6 +69,20 @@ mklink /J "%USERPROFILE%\.dsh\profiles\node_modules\deepseek-balance-dashboard" 
 - 余额卡片显示数字（不是报错）
 - 热力图今天的格子有颜色，悬停出现黑底白字气泡
 
+## 常见问题
+
+- **显示「凭据服务不可用」**：这是旧版插件在启动时过早抓取凭据服务导致的
+  （`apply` 里 `ctx.get('credentials')` 拿到 `undefined`）。新版已修复：
+  `inject` 声明了 `credentials`，且所有服务改为**使用时按需解析**。
+  如果仍出现，请**重启 DSH** 让主机半重新加载新代码。
+- **显示「未找到 DeepSeek API Key（凭据 DEEPSEEK_API_KEY 未配置）」**：
+  在 DSH 设置 → 模型页填入 DeepSeek API Key（会写入 `$DSH_HOME/.credentials.yaml`），
+  或在启动 DSH 的 shell 里导出 `DEEPSEEK_API_KEY` 后重启 DSH。
+- **余额一直为 0 或显示网络错误**：检查本机 curl 是否可用、能否访问
+  `https://api.deepseek.com/user/balance`（部分地区需要代理）。
+- **热力图今天没有格子**：token 数据从插件**安装并重启之后**开始累计，
+  之前的历史用量没有接口可查，属正常现象。
+
 ## 卸载 / 删除
 
 按安装方式对应清理：
