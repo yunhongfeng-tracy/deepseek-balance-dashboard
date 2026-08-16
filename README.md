@@ -80,6 +80,10 @@ mklink /J "%USERPROFILE%\.dsh\profiles\node_modules\deepseek-balance-dashboard" 
   或在启动 DSH 的 shell 里导出 `DEEPSEEK_API_KEY` 后重启 DSH。
 - **余额一直为 0 或显示网络错误**：检查本机 curl 是否可用、能否访问
   `https://api.deepseek.com/user/balance`（部分地区需要代理）。
+- **Token 数异常大，切换其他模型后仍增长**：旧版没有过滤 provider，会把 GPT、Kimi
+  等其他模型的 usage 也算进 DeepSeek，同时重复加入 reasoning token。新版只统计
+  `deepseek-official`，并采用 DSH 的标准口径（`outputTokens` 已包含 reasoning）。
+  升级后旧版污染数据会自动清空，从正确口径重新累计。
 - **热力图今天没有格子**：token 数据从插件**安装并重启之后**开始累计，
   之前的历史用量没有接口可查，属正常现象。
 
@@ -129,9 +133,10 @@ del "%USERPROFILE%\.dsh\...\dsh-deepseek-token-usage.json"
 ## 数据说明
 
 - **余额**：来自 DeepSeek 官方接口，实时准确。
-- **token 用量**：DeepSeek 没有公开的"每日用量"接口，本插件通过 `llm/stream` 钩子统计**本 DSH 实例**实际消耗的 token，因此从**安装后开始累积**；历史无数据。
+- **token 用量**：DeepSeek 没有公开的"每日用量"接口，本插件通过 `llm/stream` 钩子仅统计 provider 为 `deepseek-official` 的调用，因此从**安装后开始累积**；历史无数据。
+- **Token 口径**：输入 = `inputTokens + cacheReadTokens + cacheWriteTokens`；输出 = `outputTokens`。DSH 的 `outputTokens` 已包含 reasoning，插件不会重复加入 `reasoningTokens`。
 - **费用**：由余额快照下降量估算，充值/赠送余额变动可能造成短暂失真。
-- token 数据持久化在插件运行 cwd 下的 `.dsh-deepseek-token-usage.json`（按天累计，跨重启保留）。
+- token 数据持久化在插件运行 cwd 下的 `.dsh-deepseek-token-usage.json`（v2 格式，按天累计，跨重启保留；首次从旧版升级会清空无法拆分的污染数据）。
 
 ## 目录结构
 
