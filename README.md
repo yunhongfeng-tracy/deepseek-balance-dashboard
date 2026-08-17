@@ -9,9 +9,12 @@
 - **余额**：总余额 / 充值余额 / 赠送余额（实时读取 DeepSeek 官方 `/user/balance` 接口）
 - **Token 用量热力图**：近 6 个月，横轴月份、纵轴周一~周日；颜色深浅 = 当日 token 用量（无数据格子在浅色/深色主题下均有独立底色和边框区分）
 - **悬停气泡**：黑底白字，展示某天的日期、token 数、费用；支持鼠标悬停和键盘聚焦（Tab + Enter）
-- **旧版口径标记**：历史版本统计口径不同的日期以琥珀色描边区分，悬停气泡与统计卡片同步标注
+- **历史估算口径标记**：历史版本统计口径不同的日期以琥珀色描边区分，悬停气泡与统计卡片同步标注
+- **全局费用历史**：余额快照保存在 `$DSH_HOME`，跨浏览器、workspace 和 Host 重启保留；升级时自动导入当前浏览器已有的本地历史
 - **4 个统计卡片**：累计 Token / 峰值 Token（带日期）/ 峰值费用 / 今日 Token
-- **自动追踪**：监听 `llm/stream`，把每次模型调用的真实 token 用量按天累加并持久化到本地文件
+- **自动追踪**：监听 `llm/stream`，把 DeepSeek 官方 provider 的真实 Token 用量按天累加并持久化到全局文件
+- **重连自恢复**：Host/WebSocket 重连后立即刷新；失败时保留上次成功数据并显示提示
+- **多进程安全**：Token 与费用文件使用跨进程锁、读合并写和退出 flush，避免 Web/Headless 同时运行时互相覆盖
 
 ## 前置条件
 
@@ -84,23 +87,26 @@ mklink /J "%USERPROFILE%\.dsh\profiles\node_modules\deepseek-balance-dashboard" 
 - **Token 数异常大，切换其他模型后仍增长**：旧版没有过滤 provider，会把 GPT、Kimi
   等其他模型的 usage 也算进 DeepSeek，同时重复加入 reasoning token。新版只统计
   `deepseek-official`，并采用 DSH 的标准口径（`outputTokens` 已包含 reasoning）。
-  旧版数据会保留并标记为“旧版口径”，新调用从正确口径继续累计。
-- **更换 workspace 后某天历史数据消失**：旧版把统计文件放在当时的 workspace，
-  切换目录后会读到另一份文件。v3 改为统一存放在 `$DSH_HOME`，并自动导入当前
-  workspace 的旧文件；其他旧 workspace 的数据可手动合并到全局文件。
+  历史记录会保留并标记为“历史估算口径”，新调用从正确口径继续累计。
+- **更换 workspace 后某天历史数据消失**：旧版把统计文件放在当时的 workspace。
+  新版统一存放在 `$DSH_HOME`，并自动扫描当前 workspace、DSH_HOME 和已注册 workspace
+  下的两种旧文件名，迁移后跨 workspace 保留。
 - **悬停其他日期仍显示最后一天，或点击其他区域后提示不消失**：旧版循环变量使用
   `var`，所有事件可能引用最后一个格子，同时只依赖 `onMouseLeave` 清理。新版使用
   每格独立绑定，并在点击其他区域、滚动、窗口失焦、隐藏页面或按 Esc 时关闭提示。
-- **DSH 重启后看板变成无样式的原始文字**：旧版会在 Client 重连时移除 CSS，
-  但设置页组件可能继续保留。新版使用稳定、幂等的样式标签跨重连保留；旧版可先用
-  `Ctrl+F5` 强制刷新恢复。
+- **DSH 重启后看板变成无样式的原始文字**：历史版本会在 Client 重连时移除 CSS，
+  但设置页组件可能继续保留。新版使用稳定、幂等的样式标签跨重连保留，并在
+  `connection/reset` 后立即重新查询；若查询失败会保留上次成功数据。
 - **热力图今天没有格子**：token 数据从插件**安装并重启之后**开始累计，
   之前的历史用量没有接口可查，属正常现象。
 - **空格子看不出来**：旧版无数据格子与面板背景同色。新版使用主题自适应的独立底色
-  （浅色偏灰、深色微亮）与更明显的边框；旧版数据日期带琥珀色描边。
-- **页面提示“Host 仍在运行旧版插件”**：当前 DSH 进程加载的是旧版插件代码，
-  Token 数据接口缺少版本字段。重启 DSH（必要时 `Ctrl+F5`）后提示消失，
-  历史 Token 数据即可显示。
+  （浅色偏灰、深色微亮）与更明显的边框；历史估算日期带琥珀色描边。
+- **页面提示“Host 仍在运行历史版本插件”**：当前 DSH 进程加载的是历史版本插件代码，
+  数据接口缺少最新版本字段。重启 DSH（必要时 `Ctrl+F5`）后提示消失。
+- **费用历史如何全局化**：新版 Host 会把每次余额查询的快照保存到
+  `$DSH_HOME/.deepseek-balance-dashboard-cost-history.json`。升级后首次打开页面时，
+  Client 会将当前浏览器已有的 localStorage 历史幂等导入；成功后其它浏览器与 workspace
+  都能读取同一份费用数据。费用仍是余额下降量估算，不等同于官方账单。
 
 ## 卸载 / 删除
 
@@ -119,11 +125,12 @@ rmdir "%USERPROFILE%\.dsh\profiles\node_modules\deepseek-balance-dashboard"
 ```
 
 ```bash
-# 3. （可选）清理已统计的 token 数据文件：
+# 3. （可选）清理已统计的 Token 与费用数据文件：
 del "%DSH_HOME%\.deepseek-balance-dashboard-token-usage.json"
-#    若 DSH_HOME 未显式配置，默认路径为：
-#    %USERPROFILE%\.dsh\.deepseek-balance-dashboard-token-usage.json
-#    旧版 workspace 中可能仍留有 .dsh-deepseek-token-usage.json，可按需备份或删除。
+del "%DSH_HOME%\.deepseek-balance-dashboard-cost-history.json"
+#    若 DSH_HOME 未显式配置，默认目录为 %USERPROFILE%\.dsh。
+#    历史 workspace 中可能仍留有 .dsh-deepseek-token-usage.json 或
+#    .ds-deepseek-token-usage.json，可按需备份或删除。
 ```
 
 4. **重启 DSH** 使配置生效（不重启的话旧进程里插件仍在运行）。
@@ -151,8 +158,9 @@ del "%DSH_HOME%\.deepseek-balance-dashboard-token-usage.json"
 - **余额**：来自 DeepSeek 官方接口，实时准确。
 - **token 用量**：DeepSeek 没有公开的"每日用量"接口，本插件通过 `llm/stream` 钩子仅统计 provider 为 `deepseek-official` 的调用，因此从**安装后开始累积**；历史无数据。
 - **Token 口径**：输入 = `inputTokens + cacheReadTokens + cacheWriteTokens`；输出 = `outputTokens`。DSH 的 `outputTokens` 已包含 reasoning，插件不会重复加入 `reasoningTokens`。
-- **费用**：由余额快照下降量估算，充值/赠送余额变动可能造成短暂失真。
-- token 数据统一持久化在 `$DSH_HOME/.deepseek-balance-dashboard-token-usage.json`（v3 格式，Host 全局、按天累计、跨 workspace 和重启保留）。v1 历史会保留并标记为“旧版口径”，v2 数据可直接迁移；当前 workspace 下的旧文件会自动导入。
+- **费用**：由连续余额快照的下降量估算，充值/赠送余额变动可能造成短暂失真；并非官方账单。余额快照统一保存在 `$DSH_HOME/.deepseek-balance-dashboard-cost-history.json`（v1），保留近约 6 个月。升级后 Client 会把当前浏览器已有的 localStorage 历史幂等导入 Host。
+- **Token 文件**：统一持久化在 `$DSH_HOME/.deepseek-balance-dashboard-token-usage.json`（v3，Host 全局、按天累计）。v1 历史保留并标记为“历史估算口径”，v2 可直接迁移；两种旧文件名会从当前、DSH_HOME 和已注册 workspace 自动扫描。
+- **并发写入**：两个 Profile/进程共享同一 DSH_HOME 时，Token 使用内存增量批次，费用使用快照去重；两者都在跨进程锁内先读、合并、再原子写。正常 stop/重载会等待最后一批 flush。
 
 ## 目录结构
 
