@@ -6,7 +6,7 @@
 
 ## 功能
 
-- **余额**：总余额 / 充值余额 / 赠送余额（实时读取 DeepSeek 官方 `/user/balance` 接口）
+- **余额**：总余额 / 充值余额 / 赠送余额；先用 Host 全局快照快速显示，再在后台读取 DeepSeek 官方 `/user/balance` 无感更新
 - **Token 用量热力图**：近 6 个月，横轴月份、纵轴周一~周日；颜色深浅 = 当日 token 用量（无数据格子在浅色/深色主题下均有独立底色和边框区分）
 - **悬停气泡**：黑底白字，展示某天的日期、token 数、费用；支持鼠标悬停和键盘聚焦（Tab + Enter）
 - **历史估算口径标记**：历史版本统计口径不同的日期以琥珀色描边区分，悬停气泡与统计卡片同步标注
@@ -84,6 +84,10 @@ mklink /J "%USERPROFILE%\.dsh\profiles\node_modules\deepseek-balance-dashboard" 
   或在启动 DSH 的 shell 里导出 `DEEPSEEK_API_KEY` 后重启 DSH。
 - **余额一直为 0 或显示网络错误**：检查本机 curl 是否可用、能否访问
   `https://api.deepseek.com/user/balance`（部分地区需要代理）。
+- **进入页面需要等待一两秒**：官方余额请求受网络延迟影响。v0.2.1 起采用
+  stale-while-revalidate：先从 Host 全局快照快速渲染，再在后台请求官方余额并无感替换；
+  30 秒内的重复请求会复用 Host 缓存，同时到达的多个请求只启动一次 curl。
+  点击“刷新”按钮会绕过 30 秒缓存，强制查询实时余额。
 - **Token 数异常大，切换其他模型后仍增长**：旧版没有过滤 provider，会把 GPT、Kimi
   等其他模型的 usage 也算进 DeepSeek，同时重复加入 reasoning token。新版只统计
   `deepseek-official`，并采用 DSH 的标准口径（`outputTokens` 已包含 reasoning）。

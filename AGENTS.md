@@ -27,6 +27,7 @@
 - Token 文件统一位于 `$DSH_HOME/.deepseek-balance-dashboard-token-usage.json`（v3）；v1 数据保留并标记为“历史估算口径”，v2 可直接迁移。旧文件名（`.dsh-deepseek-token-usage.json`、`.ds-deepseek-token-usage.json`）在启动时自动扫描迁移。
 - 费用快照统一位于 `$DSH_HOME/.deepseek-balance-dashboard-cost-history.json`（v1），由 Host 保存近约 6 个月；Client 仅负责通过同源 JSON 请求把历史 localStorage 幂等导入，展示应优先使用 API 的 `costDaily`。
 - Token 增量和费用快照都必须在跨进程锁内先读取磁盘最新版、合并后原子写入；正常 Context dispose 必须等待 pending Token flush。
+- 首屏使用缓存优先、后台更新：`?cached=1` 不得启动 curl；普通实时查询使用 30 秒 TTL 与 in-flight 合并；`?force=1` 仅供手动刷新绕过 TTL。
 
 ## DSH / Cordis 开发约束
 
@@ -46,6 +47,6 @@
 5. 验证非 `deepseek-official` usage 不会增加 Token；DeepSeek usage 按标准口径只累计一次。
 6. 用两个独立进程共享同一临时 DSH_HOME，验证 Token 增量和费用快照不丢失、锁文件可恢复、dispose 会 flush。
 7. 验证 Client CSS 重复初始化仍只有一个稳定 style 标签。
-8. 验证首次打开、Host 重启但浏览器不刷新、WebSocket 重连和 `Ctrl+F5` 后界面均正常；重连应立即请求，失败应保留上次成功数据。
+8. 验证首次打开、Host 重启但浏览器不刷新、WebSocket 重连和 `Ctrl+F5` 后界面均正常；首屏应先快速显示缓存再后台更新，重连应立即请求，失败应保留上次成功数据；并验证并发实时请求合并及手动强刷绕过 TTL。
 9. 验证每个热力图格子的 Tooltip 日期独立正确，并在点击其他区域、滚动、失焦、页面隐藏、指针取消或按 Esc 时关闭。
 10. 发布行为变更时同步更新 `package.json` 版本和 `README.md`，检查 Git diff 后再提交。
